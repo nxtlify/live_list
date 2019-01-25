@@ -9,6 +9,7 @@ module.exports = {
         'fp-ts/lib/Either',
         'fp-ts/lib/TaskEither',
         'jsdom',
+        'pn/fs',
       ],
     }),
     'canvas',
