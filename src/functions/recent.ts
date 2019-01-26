@@ -1,9 +1,10 @@
 import { APIGatewayProxyHandler, APIGatewayProxyResult } from 'aws-lambda';
+import cheerio from 'cheerio';
 import { left } from 'fp-ts/lib/Either';
-import { tryCatch } from 'fp-ts/lib/TaskEither';
-import { JSDOM } from 'jsdom';
-import { getEnv } from '../util/get-env';
-import { select, selectAll } from '../util/query-selector';
+import { Identity } from 'fp-ts/lib/Identity';
+import { fromNullable } from 'fp-ts/lib/Option';
+import { fromLeft, tryCatch } from 'fp-ts/lib/TaskEither';
+import fetch from 'node-fetch';
 
 interface LiveDetail {
   date: string;
@@ -13,35 +14,48 @@ interface LiveDetail {
   url: string;
 }
 
-const toLiveDetail = ($div: HTMLDivElement): LiveDetail => {
-  const date = select('.liveDate', $div)
-    .mapNullable((ele) => ele.textContent)
-    .fold('', (txt) => txt.trim());
+const find = (x: Cheerio, q: string) => new Identity(x.find(q));
+const text = (x: Cheerio) => x.text();
+const trim = (x: string) => x.trim();
+const sub = (p: string | RegExp, r: string) => (s: string) => s.replace(p, r);
 
-  const $a = select<HTMLAnchorElement>('.liveTitle', $div);
-  const url = $a.fold('', (ele) => ele.href.replace('?ref=community', ''));
-  const title = $a.mapNullable((ele) => ele.textContent).getOrElse('');
+const toLiveDetail = (el: Cheerio): LiveDetail => {
+  const $a = find(el, '.liveTitle');
 
-  const broadcaster = select<HTMLDivElement>('.liveBroadcaster', $div)
-    .mapNullable((ele) => ele.textContent)
-    .fold('', (txt) => txt.trim().replace(/^放送主：(.+)さん$/, '$1'));
-
-  const description = select<HTMLParagraphElement>('.liveDescription', $div)
-    .mapNullable((ele) => ele.textContent)
-    .getOrElse('');
+  const date = find(el, '.liveDate')
+    .map(text)
+    .map(trim).value;
+  const title = $a.map(text).map(trim).value;
+  const description = find(el, '.liveDescription')
+    .map(text)
+    .map(trim).value;
+  const broadcaster = find(el, '.liveBroadcaster')
+    .map(text)
+    .map(sub(/^放送主：(.+)さん$/, '$1'))
+    .map(trim).value;
+  const url = $a
+    .map((x) => x.attr('href'))
+    .map(sub('?ref=community', ''))
+    .map(trim).value;
 
   return { date, title, description, broadcaster, url };
 };
 
 export const handler: APIGatewayProxyHandler = async () => {
-  const url = getEnv('COMMUNITY_ID').map((id) => `https://com.nicovideo.jp/live_archives/${id}`);
+  const url = fromNullable(process.env.COMMUNITY_ID).map((id) => `https://com.nicovideo.jp/live_archives/${id}`);
   if (url.isNone()) {
     return { statusCode: 500, body: 'コミュニティIDが設定されていない' };
   }
 
-  const result = await tryCatch(() => JSDOM.fromURL(url.value), String)
-    .map((vdom) => selectAll<HTMLDivElement>('.liveDetail', vdom.window.document))
-    .map((divs) => divs.map(toLiveDetail))
+  const result = await tryCatch(() => fetch(url.value), String)
+    .chain((res) => (res.ok ? tryCatch(() => res.text(), String) : fromLeft<string, string>('ページの取得に失敗した')))
+    .map((html) => cheerio.load(html))
+    .map(($) =>
+      $('.liveDetail')
+        .toArray()
+        .map($)
+        .map(toLiveDetail),
+    )
     .run()
     .catch((reason) => left<string, LiveDetail[]>(String(reason)));
 
