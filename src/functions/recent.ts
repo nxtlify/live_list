@@ -17,7 +17,6 @@ interface LiveDetail {
 const find = (x: Cheerio, q: string) => new Identity(x.find(q));
 const text = (x: Cheerio) => x.text();
 const trim = (x: string) => x.trim();
-const sub = (p: string | RegExp, r: string) => (s: string) => s.replace(p, r);
 
 const toLiveDetail = (el: Cheerio): LiveDetail => {
   const $a = find(el, '.liveTitle');
@@ -31,12 +30,9 @@ const toLiveDetail = (el: Cheerio): LiveDetail => {
     .map(trim).value;
   const broadcaster = find(el, '.liveBroadcaster')
     .map(text)
-    .map(sub(/^放送主：(.+)さん$/, '$1'))
-    .map(trim).value;
-  const url = $a
-    .map((x) => x.attr('href'))
-    .map(sub('?ref=community', ''))
-    .map(trim).value;
+    .map(trim)
+    .map((x) => x.replace(/^放送主：(.+)さん$/, '$1')).value;
+  const url = $a.map((x) => x.attr('href').replace('?ref=community', '')).value;
 
   return { date, title, description, broadcaster, url };
 };
