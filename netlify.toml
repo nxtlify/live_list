@@ -1,3 +1,8 @@
 [build]
   command = "yarn build"
   functions = "dist/functions/"
+
+[[redirects]]
+ from = "/recent"
+ to = "/.netlify/functions/recent"
+ status = 200
