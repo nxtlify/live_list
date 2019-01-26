@@ -1,6 +1,6 @@
 # Live List
 
-ベースURL: <osmh-live-list.netlify.com>
+ベースURL: <https://osmh-live-list.netlify.com>
 
 ## `GET /recent`
 
