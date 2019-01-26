@@ -25,8 +25,8 @@
   },
   "scripts": {
     "build": "npm-run-all --print-label --parallel doBuild ci:*",
-    "doBuild": "netlify-lambda build --config webpack.config.js src/functions",
-    "watch": "COMMUNITY_ID=co1590527 netlify-lambda serve --config webpack.config.js src/functions",
+    "doBuild": "netlify-lambda build src/functions",
+    "watch": "COMMUNITY_ID=co1590527 netlify-lambda serve src/functions",
     "ci": "npm-run-all --print-label --parallel ci:*",
     "ci:type": "tsc --project . --noEmit",
     "ci:lint": "tslint --project . --format stylish"
